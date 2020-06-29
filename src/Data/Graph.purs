@@ -26,6 +26,7 @@ module Data.Graph
   , isAdjacent
   , areConnected
   , shortestPath
+  , stronglyConnectedComponents
   , allPaths
   ) where
 
@@ -42,11 +43,12 @@ import Data.List as L
 import Data.List as List
 import Data.Map (Map)
 import Data.Map as M
-import Data.Maybe (Maybe(..), isJust, maybe)
+import Data.Maybe (Maybe(..), fromJust, isJust, maybe)
 import Data.Set (Set)
 import Data.Set as S
 import Data.Set as Set
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
+import Partial.Unsafe (unsafePartial)
 
 -- | A graph with vertices of type `v`.
 -- |
@@ -271,3 +273,61 @@ topologicalSort (Graph g) =
     initialState = { unvisited: g
                    , result: Nil
                    }
+
+-- | Tarjan's algorithm for Strongly Connected Components (SCCs).
+-- |
+-- | Defines a `Map` where each node is mapped to its equivalence class
+-- | representative once the graph is partitioned into SCCs.
+-- |
+-- | Running time: O(|E| log |V|)
+stronglyConnectedComponents :: forall k v. Ord k => Graph k v -> Map k k
+stronglyConnectedComponents (Graph g) =
+  Foldable.foldl
+    ( \scc next ->
+        if isJust (M.lookup next scc) then
+          -- have already found the SCC representative of `next`
+          scc
+        else
+          dfs next M.empty scc
+    )
+    M.empty
+    $ M.keys g
+  where
+  dfs :: k -> Map k Int -> Map k k -> Map k k
+  -- perform a depth-first search in the graph starting from `n`
+  -- `depth` tracks the depth at which each node is visited
+  -- `scc` is the accumulating map from each node to its representative in its
+  -- SCC
+  --   - when `scc` is defined on all vertices of the graph, the procedure is
+  --     complete
+  dfs n depth scc = case ( Foldable.foldl
+        ( \(Tuple sccAcc shallowest) c -> case M.lookup c depth of
+            -- fold over the children `c` of `n`; the accumulator is a pair
+            -- consisting of
+            --   - `sccAcc`: the accumulating SCC map
+            --   - `shallowest`: the shallowest node we have seen so far in
+            --                   this branch of the DFS (this will become the
+            --                   SCC representative)
+            Just _ -> Tuple sccAcc $ shallower shallowest c
+            Nothing ->
+              let
+                sccWithChildData = dfs c (M.insert n (M.size depth) depth) sccAcc
+
+                shallowestForChild = unsafePartial $ fromJust $ M.lookup c sccWithChildData
+                -- not actually partial; `c` is guaranteed to be in the map
+              in
+                Tuple sccWithChildData $ shallower shallowest shallowestForChild
+        )
+        (Tuple scc n)
+        $ children n (Graph g)
+    ) of
+    Tuple newState shallow -> M.insert n shallow newState -- `shallow` becomes the representative
+                                                          -- of the SCC containing `n`
+    where
+    shallower :: k -> k -> k
+    -- determine whether `x` or `y` was visited first in the DFS, as determined
+    -- by `depth`
+    shallower x y = case (Tuple (M.lookup x depth) (M.lookup y depth)) of
+      Tuple _ Nothing -> x
+      Tuple Nothing _ -> y
+      Tuple (Just p) (Just q) -> if q < p then y else x

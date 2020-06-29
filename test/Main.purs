@@ -130,3 +130,7 @@ main = do
         Graph.allPaths 1 8 acyclicGraph `shouldEqual` Set.singleton (List.fromFoldable [ 1, 2, 4, 8 ])
         Graph.allPaths 2 6 acyclicGraph `shouldEqual` Set.singleton (List.fromFoldable [ 2, 3, 6 ])
         Graph.allPaths 5 3 cyclicGraph `shouldEqual` Set.singleton (List.fromFoldable [ 5, 1, 2, 3 ])
+    describe "stronglyConnectedComponents" do
+       it "works for examples" do
+          Graph.stronglyConnectedComponents acyclicGraph `shouldEqual` (Map.fromFoldable [ Tuple 1 1, Tuple 2 2, Tuple 3 3, Tuple 4 4, Tuple 5 5, Tuple 6 6, Tuple 7 7, Tuple 8 8])
+          Graph.stronglyConnectedComponents cyclicGraph `shouldEqual` (Map.fromFoldable [ Tuple 1 1, Tuple 2 1, Tuple 3 1, Tuple 4 4, Tuple 5 5])
