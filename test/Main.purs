@@ -1,7 +1,9 @@
 module Test.Main where
 
+import Data.Functor
 import Prelude
 
+import Data.Graph (insertEdgeWithVertices)
 import Data.Graph as Graph
 import Data.List as List
 import Data.Map as Map
@@ -9,14 +11,17 @@ import Data.Set as Set
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Test.Spec (describe, it)
-import Test.Spec.Assertions (shouldEqual)
+import Test.Spec.Assertions (shouldEqual, shouldNotEqual)
 import Test.Spec.Reporter.Console (consoleReporter)
 import Test.Spec.Runner (run)
+
+emptyDecorate :: forall f k. Functor f => f k -> f (Tuple k Unit)
+emptyDecorate = map (\k -> Tuple k unit)
 
 main :: Effect Unit
 main = do
   run [consoleReporter] do
-    let n k v = Tuple k (Tuple k (Set.fromFoldable v ))
+    let n k v = Tuple k (Tuple k (List.fromFoldable v ))
         --       4 - 8
         --      /     \
         -- 1 - 2 - 3 - 5 - 7
@@ -25,14 +30,14 @@ main = do
         acyclicGraph =
           Graph.fromMap (
             Map.fromFoldable
-              [ n 1 [ 2 ]
-              , n 2 [ 3, 4 ]
-              , n 3 [ 5, 6 ]
-              , n 4 [ 8 ]
-              , n 5 [ 7 ]
-              , n 6 [ ]
-              , n 7 [ ]
-              , n 8 [ 5 ]
+              [ n 1 (emptyDecorate [ 2 ])
+              , n 2 (emptyDecorate [ 3, 4 ])
+              , n 3 (emptyDecorate [ 5, 6 ])
+              , n 4 (emptyDecorate [ 8 ])
+              , n 5 (emptyDecorate [ 7 ])
+              , n 6 (emptyDecorate [ ])
+              , n 7 (emptyDecorate [ ])
+              , n 8 (emptyDecorate [ 5 ])
               ])
         --       2 - 4
         --      / \
@@ -40,11 +45,11 @@ main = do
         cyclicGraph =
           Graph.fromMap (
             Map.fromFoldable
-              [ n 1 [ 2 ]
-              , n 2 [ 3, 4 ]
-              , n 3 [ 1 ]
-              , n 4 [ ]
-              , n 5 [ 1 ]
+              [ n 1 (emptyDecorate [ 2 ])
+              , n 2 (emptyDecorate [ 3, 4 ])
+              , n 3 (emptyDecorate [ 1 ])
+              , n 4 (emptyDecorate [ ])
+              , n 5 (emptyDecorate [ 1 ])
               ])
     describe "topologicalSort" do
       it "works for an example" do
@@ -53,24 +58,31 @@ main = do
       it "works for examples" do
         let t x = Tuple x x
             graph =
-              Graph.insertEdgeWithVertices (t 1) (t 2) $
-              Graph.insertEdgeWithVertices (t 2) (t 4) $
-              Graph.insertEdgeWithVertices (t 4) (t 8) $
-              Graph.insertEdgeWithVertices (t 8) (t 5) $
-              Graph.insertEdgeWithVertices (t 5) (t 7) $
-              Graph.insertEdgeWithVertices (t 2) (t 3) $
-              Graph.insertEdgeWithVertices (t 3) (t 5) $
-              Graph.insertEdgeWithVertices (t 3) (t 6) $
+              Graph.insertEdgeWithVertices (t 1) (t 2) unit $
+              Graph.insertEdgeWithVertices (t 2) (t 4) unit $
+              Graph.insertEdgeWithVertices (t 4) (t 8) unit $
+              Graph.insertEdgeWithVertices (t 8) (t 5) unit $
+              Graph.insertEdgeWithVertices (t 5) (t 7) unit $
+              Graph.insertEdgeWithVertices (t 2) (t 3) unit $
+              Graph.insertEdgeWithVertices (t 3) (t 5) unit $
+              Graph.insertEdgeWithVertices (t 3) (t 6) unit $
               Graph.empty
         Graph.toMap graph `shouldEqual` Graph.toMap acyclicGraph
         let graph' =
-               Graph.insertEdgeWithVertices (t 5) (t 1) $
-               Graph.insertEdgeWithVertices (t 1) (t 2) $
-               Graph.insertEdgeWithVertices (t 2) (t 4) $
-               Graph.insertEdgeWithVertices (t 2) (t 3) $
-               Graph.insertEdgeWithVertices (t 3) (t 1) $
+               Graph.insertEdgeWithVertices (t 5) (t 1) unit $
+               Graph.insertEdgeWithVertices (t 1) (t 2) unit $
+               Graph.insertEdgeWithVertices (t 2) (t 4) unit $
+               Graph.insertEdgeWithVertices (t 2) (t 3) unit $
+               Graph.insertEdgeWithVertices (t 3) (t 1) unit $
                Graph.empty
         Graph.toMap graph' `shouldEqual` Graph.toMap cyclicGraph
+    describe "multiple edges between a pair of nodes" do
+       it "works for an example" do
+        let t x = Tuple x x
+            graph =
+              Graph.insertEdgeWithVertices (t 1) (t 2) unit $
+              Graph.empty
+        Graph.toMap graph `shouldNotEqual` Graph.toMap (Graph.insertEdgeWithVertices (t 1) (t 2) unit graph)
     describe "descendants" do
       it "works for examples" do
         Graph.descendants 1 acyclicGraph `shouldEqual` Set.fromFoldable [ 2, 3, 4, 5, 6, 7, 8 ]
