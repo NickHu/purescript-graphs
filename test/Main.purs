@@ -54,6 +54,10 @@ main = do
     describe "topologicalSort" do
       it "works for an example" do
         Graph.topologicalSort acyclicGraph `shouldEqual` List.fromFoldable [ 1, 2, 4, 8, 3, 6, 5, 7 ]
+    describe "edges" do
+      it "works for an example" do
+         Graph.edges acyclicGraph `shouldEqual` (List.fromFoldable $ map (\x -> Tuple x unit) [Tuple 1 2, Tuple 2 3, Tuple 2 4, Tuple 3 5, Tuple 3 6, Tuple 4 8, Tuple 5 7, Tuple 8 5])
+         Graph.edges cyclicGraph `shouldEqual` (List.fromFoldable $ map (\x -> Tuple x unit) [Tuple 1 2, Tuple 2 3, Tuple 2 4, Tuple 3 1, Tuple 5 1])
     describe "insertEdgeWithVertices" do
       it "works for examples" do
         let t x = Tuple x x

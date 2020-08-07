@@ -10,6 +10,7 @@ module Data.Graph
   , insertVertex
   , insertEdgeWithVertices
   , vertices
+  , edges
   , lookup
   , outEdges
   , children
@@ -92,9 +93,9 @@ unfoldGraph
   -> (k -> v)
   -> (k -> out (Tuple k d))
   -> Graph k d v
-unfoldGraph ks label edges =
+unfoldGraph ks label es =
   Graph (M.fromFoldable (map (\k ->
-            Tuple k (Tuple (label k) (L.fromFoldable (edges k)))) ks))
+            Tuple k (Tuple (label k) (L.fromFoldable (es k)))) ks))
 
 -- | Create a `Graph` from a `Map` which maps vertices to their labels and
 -- | outgoing edges.
@@ -145,6 +146,13 @@ areConnected start end g = isJust $ shortestPath start end g
 -- | List all vertices in a graph.
 vertices :: forall k d v. Graph k d v -> List v
 vertices (Graph g) = map fst (M.values g)
+
+-- | List of all edges in a graph.
+edges :: forall k d v. Ord k => Graph k d v -> List (Tuple (Tuple k k) d)
+edges (Graph g) = do
+  s <- L.fromFoldable $ M.keys g
+  let adj = snd $ unsafePartial $ fromJust $ M.lookup s g
+  map (\(Tuple t d) -> Tuple (Tuple s t) d) adj
 
 -- | Lookup a vertex by its key.
 lookup :: forall k d v. Ord k => k -> Graph k d v -> Maybe v
