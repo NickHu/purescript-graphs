@@ -119,27 +119,23 @@ adjacent :: forall k d v. Ord k => k -> Graph k d v -> Set k
 adjacent k g = children k g `Set.union` parents k g
 
 -- | Returns shortest path between start and end key if it exists.
--- |
--- | Cyclic graphs may return bottom.
 shortestPath :: forall k d v. Ord k => k -> k -> Graph k d v -> Maybe (List k)
 shortestPath start end g =
   Array.head <<< Array.sortWith List.length <<< S.toUnfoldable $ allPaths start end g
 
--- | Returns shortest path between start and end key if it exists.
--- |
--- | Cyclic graphs may return bottom.
+-- | Returns a set of all simple paths from the start to end key.
 allPaths :: forall k d v. Ord k => k -> k -> Graph k d v -> Set (List k)
-allPaths start end g = Set.map L.reverse $ go mempty start
+allPaths start end g = Set.map L.reverse $ go Set.empty mempty start
   where
-    go hist k =
+    go visited hist k =
       if end == k
       then Set.singleton hist'
       else
         if children' == Set.empty
         then Set.empty
-        else Foldable.foldMap (go hist') children'
+        else Foldable.foldMap (go (Set.insert k visited) hist') children'
       where
-        children' = children k g
+        children' = children k g `Set.difference` visited
         hist' = k `Cons` hist
 
 -- | Checks if there's a directed path between the start and end key.
@@ -170,28 +166,24 @@ parents :: forall k d v. Ord k => k -> Graph k d v -> Set k
 parents k (Graph g) = M.keys <<< M.filter (Foldable.elem k <<< map fst <<< snd) $ g
 
 -- | Returns all ancestors of given key.
--- |
--- | Will return bottom if `k` is in cycle.
 ancestors :: forall k d v. Ord k => k -> Graph k d v -> Set k
-ancestors k' g = go k'
+ancestors k' g = go Set.empty k'
   where
-   go k = Set.unions $ Set.insert da $ Set.map go da
+   go visited k = Set.unions $ Set.insert new $ Set.map (go (Set.insert k visited)) new
      where
-       da = parents k g
+       new = if Set.member k visited then Set.empty else parents k g
 
 -- | Returns immediate descendants of given key.
 children :: forall k d v. Ord k => k -> Graph k d v -> Set k
 children k (Graph g) = maybe mempty (Set.fromFoldable <<< map fst <<< snd) <<< M.lookup k $ g
 
 -- | Returns all descendants of given key.
--- |
--- | Will return bottom if `k` is in cycle.
 descendants :: forall k d v. Ord k => k -> Graph k d v -> Set k
-descendants k' g = go k'
+descendants k' g = go Set.empty k'
   where
-   go k = Set.unions $ Set.insert dd $ Set.map go dd
+   go visited k = Set.unions $ Set.insert new $ Set.map (go (Set.insert k visited)) new
      where
-       dd = children k g
+       new = if Set.member k visited then Set.empty else children k g
 
 -- | Checks if given key is part of a cycle.
 isInCycle :: forall k d v. Ord k => k -> Graph k d v -> Boolean
