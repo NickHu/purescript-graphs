@@ -60,6 +60,9 @@ newtype Graph k d v = Graph (Map k (Tuple v (List (Tuple k d))))
 instance functorGraph :: Functor (Graph k d) where
   map f (Graph m) = Graph (map (lmap f) m)
 
+instance showGraph :: (Show k, Show d, Show v) => Show (Graph k d v) where
+  show (Graph m) = show m
+
 -- | An empty graph.
 empty :: forall k d v. Graph k d v
 empty = Graph M.empty
